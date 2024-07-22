@@ -1,0 +1,62 @@
+// Simulate an exponentially growing viral pop under a linear birth-death model with fixed mutational fitness effects
+// This version assumes the mutational fitness effect param will be passed as a command line argument
+// Mutation rate is fixed at low value: 1.0e-5 
+
+initialize() {
+	initializeSLiMModelType("nonWF");
+	initializeTreeSeq();
+	defineConstant("birth_rate", 0.3 / 10);	// birth rate
+	defineConstant("death_rate", 0.1 / 10);	// death rate
+	defineConstant("sampling_fraction", 0.01); // sampling_fraction
+	//initializeMutationType("m1", 1.0, "f", -0.05); // with a fixed selection coefficiet s = -0.05, first value is dominance coefficient
+	initializeMutationType("m1", 1.0, "f", s); // with selection coefficient s passed as a command-line arguement
+	m1.convertToSubstitution = T;
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, 29903);
+	initializeMutationRate(1.0e-5);
+	initializeRecombinationRate(0);
+}
+
+reproduction() {
+	// Sample number of new infections from Poisson distribution and choose parents based on their fitness
+	inds = rpois(1,birth_rate*p1.individualCount);
+	fitness = p1.cachedFitness(NULL);
+	parents = sample(p1.individuals, inds, replace=T, weights=fitness);
+	for (i in seqLen(inds))
+		subpop.addCloned(parents[i]);
+		
+	self.active = 0; 
+}
+
+survival() {
+	// Decide whether each individual survives and whether to sample if they die
+	survival_prob = exp(-death_rate);
+	survives = (draw <= survival_prob);
+	if (!survives)
+		if (runif(1,0,1) <= sampling_fraction)
+			sim.treeSeqRememberIndividuals(individual);
+	return survives;
+}
+
+1 early() {
+	sim.addSubpop("p1", 1, haploid=T);
+}
+
+late() {
+	//sim.treeSeqRememberIndividuals(sim.subpopulations.individuals);
+	inds = p1.individuals;
+   catn(sim.cycle + ": " + size(inds));
+}
+
+550 early() {
+	// Sample remaining individuals and then kill everyone off so they are not recorded in treeSeqOutput
+	//count = rbinom(1,p1.individualCount,sampling_fraction);
+	//samples = sample(p1.individuals, count, replace=F);
+	//sim.treeSeqRememberIndividuals(samples);	
+	sim.killIndividuals(p1.individuals);
+}
+550 late() {
+	sim.treeSeqSimplify();
+	sim.treeSeqOutput("./nonWF_haploid.trees");
+	sim.outputFixedMutations(); 
+}

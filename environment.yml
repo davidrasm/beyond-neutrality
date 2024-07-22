@@ -1,0 +1,8 @@
+name: slim
+channels:
+dependencies:
+  - python=3.9.10
+  - slim=4.0
+  - msprime=1.2
+  - tskit=0.4.1
+  - pyslim=1.0
